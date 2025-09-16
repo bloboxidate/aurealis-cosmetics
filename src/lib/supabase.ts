@@ -13,47 +13,133 @@ export const createClientComponentClient = () => {
 export interface Database {
   public: {
     Tables: {
+      users: {
+        Row: {
+          id: string;
+          email: string;
+          first_name: string | null;
+          last_name: string | null;
+          phone: string | null;
+          phone_code: string | null;
+          birth_date: string | null;
+          is_verified: boolean;
+          company_id: string | null;
+          sariee_user_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          email: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          phone?: string | null;
+          phone_code?: string | null;
+          birth_date?: string | null;
+          is_verified?: boolean;
+          company_id?: string | null;
+          sariee_user_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          phone?: string | null;
+          phone_code?: string | null;
+          birth_date?: string | null;
+          is_verified?: boolean;
+          company_id?: string | null;
+          sariee_user_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       products: {
         Row: {
-          id: string
-          name: string
-          description: string
-          price: number
-          category: string
-          images: string[]
-          inventory: number
-          sku: string
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
+          id: string;
+          sariee_product_id: string;
+          name: string;
+          description: string | null;
+          short_description: string | null;
+          price: number;
+          compare_price: number | null;
+          cost_price: number | null;
+          sku: string | null;
+          barcode: string | null;
+          inventory_quantity: number;
+          min_inventory_level: number;
+          max_inventory_level: number | null;
+          weight: number | null;
+          dimensions: any | null;
+          is_active: boolean;
+          is_featured: boolean;
+          is_digital: boolean;
+          requires_shipping: boolean;
+          tax_rate: number;
+          seo_title: string | null;
+          seo_description: string | null;
+          meta_keywords: string[] | null;
+          created_at: string;
+          updated_at: string;
+        };
         Insert: {
-          id?: string
-          name: string
-          description: string
-          price: number
-          category: string
-          images?: string[]
-          inventory?: number
-          sku?: string
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
+          id?: string;
+          sariee_product_id: string;
+          name: string;
+          description?: string | null;
+          short_description?: string | null;
+          price: number;
+          compare_price?: number | null;
+          cost_price?: number | null;
+          sku?: string | null;
+          barcode?: string | null;
+          inventory_quantity?: number;
+          min_inventory_level?: number;
+          max_inventory_level?: number | null;
+          weight?: number | null;
+          dimensions?: any | null;
+          is_active?: boolean;
+          is_featured?: boolean;
+          is_digital?: boolean;
+          requires_shipping?: boolean;
+          tax_rate?: number;
+          seo_title?: string | null;
+          seo_description?: string | null;
+          meta_keywords?: string[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
         Update: {
-          id?: string
-          name?: string
-          description?: string
-          price?: number
-          category?: string
-          images?: string[]
-          inventory?: number
-          sku?: string
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-      }
+          id?: string;
+          sariee_product_id?: string;
+          name?: string;
+          description?: string | null;
+          short_description?: string | null;
+          price?: number;
+          compare_price?: number | null;
+          cost_price?: number | null;
+          sku?: string | null;
+          barcode?: string | null;
+          inventory_quantity?: number;
+          min_inventory_level?: number;
+          max_inventory_level?: number | null;
+          weight?: number | null;
+          dimensions?: any | null;
+          is_active?: boolean;
+          is_featured?: boolean;
+          is_digital?: boolean;
+          requires_shipping?: boolean;
+          tax_rate?: number;
+          seo_title?: string | null;
+          seo_description?: string | null;
+          meta_keywords?: string[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       categories: {
         Row: {
           id: string
@@ -259,3 +345,17 @@ export interface Database {
     }
   }
 }
+
+// Type aliases for easier use
+export type User = Database['public']['Tables']['users']['Row'];
+export type Product = Database['public']['Tables']['products']['Row'] & {
+  product_images?: Database['public']['Tables']['product_images']['Row'][];
+  product_categories?: (Database['public']['Tables']['product_categories']['Row'] & {
+    categories?: Database['public']['Tables']['categories']['Row'];
+  })[];
+  product_variants?: Database['public']['Tables']['product_variants']['Row'][];
+};
+export type Category = Database['public']['Tables']['categories']['Row'];
+export type ProductImage = Database['public']['Tables']['product_images']['Row'];
+export type ProductCategory = Database['public']['Tables']['product_categories']['Row'];
+export type ProductVariant = Database['public']['Tables']['product_variants']['Row'];
