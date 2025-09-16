@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { ShoppingCartIcon, UserIcon } from '@heroicons/react/24/outline';
+import { ShoppingCartIcon, UserIcon, HeartIcon } from '@heroicons/react/24/outline';
 import { useCart } from '@/contexts/cart-context';
+import { useWishlist } from '@/contexts/wishlist-context';
 import GlobalSearch from '@/components/search/global-search';
 
 export default function DesktopHeader() {
   const { state, toggleCart } = useCart();
+  const { items: wishlistItems } = useWishlist();
   
   const navigation = [
     { name: 'Home', href: '/' },
@@ -42,6 +44,19 @@ export default function DesktopHeader() {
           <div className="flex items-center space-x-6">
             {/* Search */}
             <GlobalSearch className="w-full max-w-md" />
+
+            {/* Wishlist */}
+            <Link 
+              href="/wishlist"
+              className="relative p-2 text-gray-600 hover:text-pink-600 transition-colors"
+            >
+              <HeartIcon className="w-6 h-6" />
+              {wishlistItems.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {wishlistItems.length}
+                </span>
+              )}
+            </Link>
 
             {/* Cart */}
             <button 

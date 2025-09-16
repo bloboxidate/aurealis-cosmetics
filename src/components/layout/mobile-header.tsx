@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Bars3Icon, ShoppingCartIcon, UserIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, ShoppingCartIcon, UserIcon, HeartIcon } from '@heroicons/react/24/outline';
 import GlobalSearch from '@/components/search/global-search';
 import { useCart } from '@/contexts/cart-context';
+import { useWishlist } from '@/contexts/wishlist-context';
 
 export default function MobileHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { state, toggleCart } = useCart();
+  const { items: wishlistItems } = useWishlist();
 
   const navigation = [
     { name: 'Home', href: '/' },
@@ -33,6 +35,19 @@ export default function MobileHeader() {
             <div className="hidden sm:block">
               <GlobalSearch className="w-full max-w-sm" />
             </div>
+            
+            {/* Wishlist */}
+            <Link 
+              href="/wishlist"
+              className="relative p-2 text-gray-600 hover:text-pink-600 transition-colors"
+            >
+              <HeartIcon className="w-6 h-6" />
+              {wishlistItems.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {wishlistItems.length}
+                </span>
+              )}
+            </Link>
             
             {/* Cart */}
             <button 

@@ -637,6 +637,49 @@ class SarieeApiClient {
     });
   }
 
+  // Wishlist APIs
+  async getWishlist(): Promise<SarieeResponse<any>> {
+    return this.makeRequest('/wishlist', {
+      method: 'GET',
+    });
+  }
+
+  async addToWishlist(productId: string): Promise<SarieeResponse<any>> {
+    return this.makeRequest('/wishlist/add', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        product_id: productId,
+      }),
+    });
+  }
+
+  async removeFromWishlist(productId: string): Promise<SarieeResponse<any>> {
+    return this.makeRequest('/wishlist/remove', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        product_id: productId,
+      }),
+    });
+  }
+
+  async clearWishlist(): Promise<SarieeResponse<any>> {
+    return this.makeRequest('/wishlist/clear', {
+      method: 'DELETE',
+    });
+  }
+
+  async isInWishlist(productId: string): Promise<SarieeResponse<any>> {
+    return this.makeRequest(`/wishlist/check?product_id=${productId}`, {
+      method: 'GET',
+    });
+  }
+
   // Checkout APIs
   async getAvailablePaymentMethods(): Promise<SarieeResponse<any>> {
     return this.makeRequest('/cart/available-payment-methods', {

@@ -7,6 +7,7 @@ import { formatPrice } from '@/lib/utils';
 import { HeartIcon, ShoppingCartIcon, StarIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import { useCart } from '@/contexts/cart-context';
+import { useWishlist } from '@/contexts/wishlist-context';
 
 interface ProductDetailProps {
   product: Product;
@@ -16,8 +17,10 @@ export default function ProductDetail({ product }: ProductDetailProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const { addToCart, state } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  
+  const isWishlisted = isInWishlist(product.id);
 
   const images = product.product_images?.sort((a, b) => a.sort_order - b.sort_order) || [];
   const variants = product.product_variants?.filter(v => v.is_active) || [];
@@ -36,9 +39,12 @@ export default function ProductDetail({ product }: ProductDetailProps) {
     await addToCart(product, variant, quantity);
   };
 
-  const handleWishlist = () => {
-    setIsWishlisted(!isWishlisted);
-    // TODO: Implement wishlist functionality
+  const handleWishlist = async () => {
+    if (isWishlisted) {
+      await removeFromWishlist(product.id);
+    } else {
+      await addToWishlist(product);
+    }
   };
 
   return (
@@ -202,11 +208,11 @@ export default function ProductDetail({ product }: ProductDetailProps) {
               onClick={handleWishlist}
               className="px-4 py-3 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors sm:w-auto w-full"
             >
-              {isWishlisted ? (
-                <HeartSolidIcon className="w-5 h-5 text-red-500" />
-              ) : (
-                <HeartIcon className="w-5 h-5 text-gray-600" />
-              )}
+            {isWishlisted ? (
+              <HeartSolidIcon className="w-5 h-5 text-pink-600" />
+            ) : (
+              <HeartIcon className="w-5 h-5 text-gray-600" />
+            )}
             </button>
           </div>
 

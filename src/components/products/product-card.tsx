@@ -8,14 +8,17 @@ import { HeartIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import { useState } from 'react';
 import { useCart } from '@/contexts/cart-context';
+import { useWishlist } from '@/contexts/wishlist-context';
 
 interface ProductCardProps {
   product: Product;
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const { addToCart, state } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  
+  const isWishlisted = isInWishlist(product.id);
 
   const primaryImage = product.product_images?.find(img => img.is_primary) || product.product_images?.[0];
   const category = product.product_categories?.[0]?.categories;
@@ -31,8 +34,11 @@ export default function ProductCard({ product }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
     
-    setIsWishlisted(!isWishlisted);
-    // TODO: Implement wishlist functionality
+    if (isWishlisted) {
+      await removeFromWishlist(product.id);
+    } else {
+      await addToWishlist(product);
+    }
   };
 
   return (
@@ -76,7 +82,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             className="absolute top-1 right-1 sm:top-2 sm:right-2 p-1.5 sm:p-2 bg-white/80 hover:bg-white rounded-full shadow-sm transition-colors duration-200"
           >
             {isWishlisted ? (
-              <HeartSolidIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
+              <HeartSolidIcon className="w-4 h-4 sm:w-5 sm:h-5 text-pink-600" />
             ) : (
               <HeartIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
             )}
