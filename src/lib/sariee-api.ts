@@ -186,7 +186,7 @@ class SarieeApiClient {
       };
 
       // Only add Content-Type for requests with body
-      if (options.body && !options.headers?.['Content-Type']) {
+      if (options.body && !(options.headers as Record<string, string>)?.['Content-Type']) {
         headers['Content-Type'] = 'application/json';
       }
 
