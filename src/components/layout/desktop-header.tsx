@@ -18,6 +18,13 @@ export default function DesktopHeader() {
     { name: 'Contact', href: '/contact' },
   ];
 
+  const footerNavigation = [
+    { name: 'FAQ', href: '/faq' },
+    { name: 'Shipping & Returns', href: '/shipping-returns' },
+    { name: 'Terms of Service', href: '/terms' },
+    { name: 'Privacy Policy', href: '/privacy' },
+  ];
+
   return (
     <header className="hidden lg:block bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
