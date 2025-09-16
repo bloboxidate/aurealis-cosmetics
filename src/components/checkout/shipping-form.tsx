@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Address } from './checkout-content';
 import { useCart } from '@/contexts/cart-context';
 import { supabase } from '@/lib/supabase';
+import sarieeApi from '@/lib/sariee-api';
 import { formatPrice } from '@/lib/utils';
 import { MapPinIcon, UserIcon, PhoneIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
 
@@ -54,38 +55,30 @@ export default function ShippingForm({
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // TODO: Load addresses from Sariee API
-        // For now, we'll use mock data
-        const mockAddresses: Address[] = [
-          {
-            id: '1',
-            name: 'Home',
-            street: '123 Main Street',
-            building: 'Building A',
-            floor: '5',
-            flat: '12',
-            landmark: 'Near City Mall',
-            phone: '+201234567890',
-            city_id: 'cairo',
-            is_default: true,
-          },
-          {
-            id: '2',
-            name: 'Office',
-            street: '456 Business District',
-            building: 'Tower B',
-            floor: '10',
-            flat: '25',
-            phone: '+201234567891',
-            city_id: 'giza',
-            is_default: false,
-          },
-        ];
-        setAddresses(mockAddresses);
-        
-        // Set default address
-        if (mockAddresses.length > 0 && !shippingAddress) {
-          onShippingAddressChange(mockAddresses[0]);
+        // Load addresses from Sariee API
+        const response = await sarieeApi.getAddresses();
+        if (response.status && response.data) {
+          // Convert Sariee address format to our format
+          const sarieeAddresses: Address[] = response.data.map((addr: any) => ({
+            id: addr.id,
+            name: addr.name,
+            street: addr.street,
+            building: addr.building,
+            floor: addr.floor,
+            flat: addr.flat,
+            landmark: addr.landmark,
+            phone: addr.phone,
+            city_id: addr.city_id,
+            is_default: addr.is_default === 1,
+          }));
+          
+          setAddresses(sarieeAddresses);
+          
+          // Set default address
+          const defaultAddr = sarieeAddresses.find(addr => addr.is_default);
+          if (defaultAddr && !shippingAddress) {
+            onShippingAddressChange(defaultAddr);
+          }
         }
       }
     } catch (error) {
@@ -107,31 +100,56 @@ export default function ShippingForm({
     
     try {
       setIsLoading(true);
-      // TODO: Save address to Sariee API
-      const savedAddress: Address = {
-        ...newAddress,
-        id: `addr_${Date.now()}`,
-      } as Address;
+      // Save address to Sariee API
+      const addressData = {
+        is_default: newAddress.is_default ? 1 : 0,
+        name: newAddress.name!,
+        street: newAddress.street!,
+        building: newAddress.building!,
+        floor: newAddress.floor!,
+        flat: newAddress.flat!,
+        landmark: newAddress.landmark || '',
+        phone: newAddress.phone!,
+        city_id: newAddress.city_id!,
+      };
       
-      setAddresses(prev => [...prev, savedAddress]);
-      onShippingAddressChange(savedAddress);
-      
-      if (useSameAddress) {
-        onBillingAddressChange(savedAddress);
+      const response = await sarieeApi.addAddress(addressData);
+      if (response.status && response.data) {
+        const savedAddress: Address = {
+          id: response.data.id,
+          name: response.data.name,
+          street: response.data.street,
+          building: response.data.building,
+          floor: response.data.floor,
+          flat: response.data.flat,
+          landmark: response.data.landmark,
+          phone: response.data.phone,
+          city_id: response.data.city_id,
+          is_default: response.data.is_default === 1,
+        };
+        
+        setAddresses((prev: Address[]) => [...prev, savedAddress]);
+        onShippingAddressChange(savedAddress);
+        
+        if (useSameAddress) {
+          onBillingAddressChange(savedAddress);
+        }
+        
+        setShowNewAddressForm(false);
+        setNewAddress({
+          name: '',
+          street: '',
+          building: '',
+          floor: '',
+          flat: '',
+          landmark: '',
+          phone: '',
+          city_id: '',
+          is_default: false,
+        });
+      } else {
+        throw new Error(response.message || 'Failed to save address');
       }
-      
-      setShowNewAddressForm(false);
-      setNewAddress({
-        name: '',
-        street: '',
-        building: '',
-        floor: '',
-        flat: '',
-        landmark: '',
-        phone: '',
-        city_id: '',
-        is_default: false,
-      });
     } catch (error) {
       console.error('Error saving address:', error);
     } finally {
@@ -224,7 +242,7 @@ export default function ShippingForm({
                   type="text"
                   required
                   value={newAddress.name || ''}
-                  onChange={(e) => setNewAddress(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => setNewAddress((prev: Partial<Address>) => ({ ...prev, name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-pink-500 focus:border-pink-500"
                   placeholder="Home, Office, etc."
                 />
@@ -238,7 +256,7 @@ export default function ShippingForm({
                   type="tel"
                   required
                   value={newAddress.phone || ''}
-                  onChange={(e) => setNewAddress(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) => setNewAddress((prev: Partial<Address>) => ({ ...prev, phone: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-pink-500 focus:border-pink-500"
                   placeholder="+201234567890"
                 />
@@ -252,7 +270,7 @@ export default function ShippingForm({
                   type="text"
                   required
                   value={newAddress.street || ''}
-                  onChange={(e) => setNewAddress(prev => ({ ...prev, street: e.target.value }))}
+                  onChange={(e) => setNewAddress((prev: Partial<Address>) => ({ ...prev, street: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-pink-500 focus:border-pink-500"
                   placeholder="123 Main Street"
                 />
@@ -266,7 +284,7 @@ export default function ShippingForm({
                   type="text"
                   required
                   value={newAddress.building || ''}
-                  onChange={(e) => setNewAddress(prev => ({ ...prev, building: e.target.value }))}
+                  onChange={(e) => setNewAddress((prev: Partial<Address>) => ({ ...prev, building: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-pink-500 focus:border-pink-500"
                   placeholder="Building A"
                 />
@@ -280,7 +298,7 @@ export default function ShippingForm({
                   type="text"
                   required
                   value={newAddress.floor || ''}
-                  onChange={(e) => setNewAddress(prev => ({ ...prev, floor: e.target.value }))}
+                  onChange={(e) => setNewAddress((prev: Partial<Address>) => ({ ...prev, floor: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-pink-500 focus:border-pink-500"
                   placeholder="5"
                 />
@@ -294,7 +312,7 @@ export default function ShippingForm({
                   type="text"
                   required
                   value={newAddress.flat || ''}
-                  onChange={(e) => setNewAddress(prev => ({ ...prev, flat: e.target.value }))}
+                  onChange={(e) => setNewAddress((prev: Partial<Address>) => ({ ...prev, flat: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-pink-500 focus:border-pink-500"
                   placeholder="12"
                 />
@@ -307,7 +325,7 @@ export default function ShippingForm({
                 <input
                   type="text"
                   value={newAddress.landmark || ''}
-                  onChange={(e) => setNewAddress(prev => ({ ...prev, landmark: e.target.value }))}
+                  onChange={(e) => setNewAddress((prev: Partial<Address>) => ({ ...prev, landmark: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-pink-500 focus:border-pink-500"
                   placeholder="Near City Mall"
                 />
@@ -320,7 +338,7 @@ export default function ShippingForm({
                 <select
                   required
                   value={newAddress.city_id || ''}
-                  onChange={(e) => setNewAddress(prev => ({ ...prev, city_id: e.target.value }))}
+                  onChange={(e) => setNewAddress((prev: Partial<Address>) => ({ ...prev, city_id: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-pink-500 focus:border-pink-500"
                 >
                   <option value="">Select City</option>
@@ -337,7 +355,7 @@ export default function ShippingForm({
                 type="checkbox"
                 id="default-address"
                 checked={newAddress.is_default || false}
-                onChange={(e) => setNewAddress(prev => ({ ...prev, is_default: e.target.checked }))}
+                onChange={(e) => setNewAddress((prev: Partial<Address>) => ({ ...prev, is_default: e.target.checked }))}
                 className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
               />
               <label htmlFor="default-address" className="ml-2 text-sm text-gray-700">

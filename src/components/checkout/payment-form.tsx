@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PaymentMethod } from './checkout-content';
+import sarieeApi from '@/lib/sariee-api';
 import { CreditCardIcon, BanknotesIcon, BuildingLibraryIcon } from '@heroicons/react/24/outline';
 
 interface PaymentFormProps {
@@ -12,7 +13,7 @@ interface PaymentFormProps {
   canProceed: boolean;
 }
 
-const paymentMethods: PaymentMethod[] = [
+const defaultPaymentMethods: PaymentMethod[] = [
   {
     id: 'card',
     name: 'Credit/Debit Card',
@@ -43,12 +44,43 @@ export default function PaymentForm({
   onPrevious,
   canProceed,
 }: PaymentFormProps) {
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(defaultPaymentMethods);
+  const [isLoading, setIsLoading] = useState(false);
   const [cardDetails, setCardDetails] = useState({
     number: '',
     expiry: '',
     cvv: '',
     name: '',
   });
+
+  // Load available payment methods from Sariee API
+  useEffect(() => {
+    loadPaymentMethods();
+  }, []);
+
+  const loadPaymentMethods = async () => {
+    try {
+      setIsLoading(true);
+      const response = await sarieeApi.getAvailablePaymentMethods();
+      if (response.status && response.data) {
+        // Convert Sariee payment methods to our format
+        const sarieeMethods: PaymentMethod[] = response.data.map((method: any) => ({
+          id: method.id || method.name?.toLowerCase().replace(/\s+/g, '_'),
+          name: method.name || method.title,
+          type: method.type || 'card',
+          description: method.description || method.name,
+          icon: method.icon || '💳',
+        }));
+        setPaymentMethods(sarieeMethods);
+      }
+    } catch (error) {
+      console.error('Error loading payment methods:', error);
+      // Fall back to default methods
+      setPaymentMethods(defaultPaymentMethods);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handlePaymentMethodSelect = (method: PaymentMethod) => {
     onPaymentMethodChange(method);

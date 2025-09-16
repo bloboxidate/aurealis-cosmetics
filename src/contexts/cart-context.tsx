@@ -337,16 +337,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       const response = await sarieeApi.getCart();
       if (response.status && response.data) {
+        // Sariee API returns cart data directly in response.data
         // Convert Sariee cart items to our format
         const cartItems: CartItem[] = response.data.items?.map((item: any) => ({
-          id: item.id,
+          id: item.id || `${item.product_id}-${item.product_barcode_id || 'default'}`,
           product_id: item.product_id,
-          variant_id: item.variant_id,
+          variant_id: item.product_barcode_id,
           quantity: item.quantity,
           price: item.price,
-          product: item.product,
+          product: item.product || { id: item.product_id, name: 'Product', price: item.price },
           variant: item.variant,
-          added_at: item.created_at,
+          added_at: item.created_at || new Date().toISOString(),
         })) || [];
 
         dispatch({ type: 'SYNC_WITH_SARIEE', payload: cartItems });

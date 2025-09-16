@@ -523,6 +523,20 @@ class SarieeApiClient {
     });
   }
 
+  async removeFromCart(productId: string, productBarcodeId?: string): Promise<SarieeResponse<any>> {
+    return this.makeRequest('/cart/add-update-item', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        product_id: productId,
+        quantity: 0, // Setting quantity to 0 removes the item
+        product_barcode_id: productBarcodeId,
+      }),
+    });
+  }
+
   async addToCart(cartData: {
     product_id: string;
     quantity: number;

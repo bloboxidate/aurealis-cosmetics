@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useCart } from '@/contexts/cart-context';
+import sarieeApi from '@/lib/sariee-api';
 import CheckoutSteps from './checkout-steps';
 import ShippingForm from './shipping-form';
 import PaymentForm from './payment-form';
@@ -13,7 +14,7 @@ import LoadingSpinner from '@/components/ui/loading-spinner';
 
 export type CheckoutStep = 'shipping' | 'payment' | 'review' | 'confirmation';
 
-interface Address {
+export interface Address {
   id?: string;
   name: string;
   street: string;
@@ -26,7 +27,7 @@ interface Address {
   is_default: boolean;
 }
 
-interface PaymentMethod {
+export interface PaymentMethod {
   id: string;
   name: string;
   type: 'card' | 'cash' | 'bank_transfer';
@@ -35,7 +36,7 @@ interface PaymentMethod {
 }
 
 export default function CheckoutContent() {
-  const { state } = useCart();
+  const { state, clearCart } = useCart();
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('shipping');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,19 +90,31 @@ export default function CheckoutContent() {
     setError(null);
 
     try {
-      // TODO: Implement order placement with Sariee API
-      // This will include:
-      // 1. Create order in Sariee
-      // 2. Process payment with Stripe
-      // 3. Update inventory
-      // 4. Send confirmation email
+      if (!shippingAddress || !selectedPaymentMethod) {
+        throw new Error('Missing required information');
+      }
+
+      // Place order using Sariee API
+      const checkoutData = {
+        payment_method: selectedPaymentMethod.type,
+        shipping_address_id: shippingAddress.id!,
+        billing_address_id: billingAddress?.id || shippingAddress.id!,
+        notes: orderNotes,
+      };
+
+      const response = await sarieeApi.checkout(checkoutData);
       
-      // Simulate order placement
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockOrderId = `ORD-${Date.now()}`;
-      setOrderId(mockOrderId);
-      setCurrentStep('confirmation');
+      if (response.status && response.data) {
+        // Order placed successfully
+        const orderId = response.data.order_id || response.data.id || `ORD-${Date.now()}`;
+        setOrderId(orderId);
+        setCurrentStep('confirmation');
+        
+        // Clear cart after successful order
+        await clearCart();
+      } else {
+        throw new Error(response.message || 'Failed to place order');
+      }
     } catch (err) {
       setError('Failed to place order. Please try again.');
       console.error('Order placement error:', err);
