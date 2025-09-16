@@ -2,6 +2,7 @@
 // Based on actual Sariee API documentation
 
 import { validateSarieeResponse, handleSarieeError, SarieeApiError } from './sariee-error-handler';
+import { sarieeDebugger } from './sariee-debug';
 
 interface SarieeConfig {
   baseUrl: string;
@@ -176,9 +177,10 @@ class SarieeApiClient {
     endpoint: string, 
     options: RequestInit = {}
   ): Promise<SarieeResponse<T>> {
+    const startTime = Date.now();
+    const url = `${this.config.baseUrl}${endpoint}`;
+    
     try {
-      const url = `${this.config.baseUrl}${endpoint}`;
-      
       const headers: Record<string, string> = {
         'Accept': 'application/json',
       };
@@ -192,6 +194,13 @@ class SarieeApiClient {
         headers['Authorization'] = `Bearer ${this.accessToken}`;
       }
 
+      // Log request
+      sarieeDebugger.logRequest(
+        options.method || 'GET', 
+        url, 
+        options.body ? JSON.parse(options.body as string) : undefined
+      );
+
       const response = await fetch(url, {
         ...options,
         headers: {
@@ -201,27 +210,39 @@ class SarieeApiClient {
         signal: AbortSignal.timeout(this.config.timeout!),
       });
 
+      const duration = Date.now() - startTime;
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Sariee API Error ${response.status}:`, errorText);
+        sarieeDebugger.logError(url, {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        }, duration);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
       
+      // Log response
+      sarieeDebugger.logResponse(url, data, duration);
+      
       // Validate response structure
       if (!validateSarieeResponse(data)) {
+        sarieeDebugger.logError(url, 'Invalid response format from Sariee API', duration);
         throw new Error('Invalid response format from Sariee API');
       }
 
       // Check if response indicates an error
       if (!data.status) {
+        sarieeDebugger.logError(url, data, duration);
         handleSarieeError(data);
       }
 
       return data;
     } catch (error) {
-      console.error('Sariee API Error:', error);
+      const duration = Date.now() - startTime;
+      sarieeDebugger.logError(url, error, duration);
       throw error;
     }
   }
