@@ -485,6 +485,82 @@ class SarieeApiClient {
     });
   }
 
+  // Search Products
+  async searchProducts(params: {
+    query?: string;
+    category?: string;
+    min_price?: number;
+    max_price?: number;
+    sort?: 'name' | 'price' | 'created_at' | 'popularity';
+    sort_direction?: 'asc' | 'desc';
+    per_page?: number;
+    page?: number;
+    type?: 'seperated' | 'unseperated';
+  }): Promise<SarieeResponse<Product[]>> {
+    let endpoint = '/all-products';
+    const queryParams = new URLSearchParams();
+
+    // Add basic parameters
+    if (params.type) queryParams.append('type', params.type);
+    if (params.per_page) queryParams.append('per_page', params.per_page.toString());
+    if (params.page) queryParams.append('page', params.page.toString());
+
+    // Build filters array
+    const filters: Array<{ name: string; value: string }> = [];
+
+    // Search query filter
+    if (params.query) {
+      filters.push({
+        name: 'name',
+        value: params.query
+      });
+    }
+
+    // Category filter
+    if (params.category) {
+      filters.push({
+        name: 'product_category_pivots.product_category_id',
+        value: params.category
+      });
+    }
+
+    // Price range filters
+    if (params.min_price !== undefined) {
+      filters.push({
+        name: 'price',
+        value: `>=${params.min_price}`
+      });
+    }
+    if (params.max_price !== undefined) {
+      filters.push({
+        name: 'price',
+        value: `<=${params.max_price}`
+      });
+    }
+
+    // Add filters to query params
+    filters.forEach((filter, index) => {
+      queryParams.append(`filter[${index}][name]`, filter.name);
+      queryParams.append(`filter[${index}][value]`, filter.value);
+    });
+
+    // Add sorting
+    if (params.sort) {
+      queryParams.append('sort', params.sort);
+      if (params.sort_direction) {
+        queryParams.append('sort_direction', params.sort_direction);
+      }
+    }
+
+    if (queryParams.toString()) {
+      endpoint += `?${queryParams.toString()}`;
+    }
+
+    return this.makeRequest<Product[]>(endpoint, {
+      method: 'GET',
+    });
+  }
+
   // Category APIs
   async getCategories(params?: {
     per_page?: number;

@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Bars3Icon, ShoppingCartIcon, UserIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import MobileSearch from '@/components/ui/mobile-search';
+import { Bars3Icon, ShoppingCartIcon, UserIcon } from '@heroicons/react/24/outline';
+import GlobalSearch from '@/components/search/global-search';
 import { useCart } from '@/contexts/cart-context';
 
 export default function MobileHeader() {
@@ -30,7 +30,9 @@ export default function MobileHeader() {
           {/* Right side icons */}
           <div className="flex items-center space-x-4">
             {/* Search */}
-            <MobileSearch className="hidden sm:block" />
+            <div className="hidden sm:block">
+              <GlobalSearch className="w-full max-w-sm" />
+            </div>
             
             {/* Cart */}
             <button 
