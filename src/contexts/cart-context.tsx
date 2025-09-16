@@ -190,7 +190,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addToCart = async (product: Product, variant?: ProductVariant, quantity: number = 1) => {
+  const addToCart = async (product: Product, quantity: number = 1, variant?: ProductVariant) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });

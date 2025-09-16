@@ -36,7 +36,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
 
   const handleAddToCart = async () => {
     const variant = variants.find(v => v.id === selectedVariant);
-    await addToCart(product, variant, quantity);
+    await addToCart(product, quantity, variant);
   };
 
   const handleWishlist = async () => {

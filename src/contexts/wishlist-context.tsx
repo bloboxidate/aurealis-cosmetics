@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import sarieeApi from '@/lib/sariee-api';
 import { Product } from '@/lib/supabase';
 
@@ -69,7 +69,7 @@ const WishlistContext = createContext<WishlistContextType | undefined>(undefined
 // Provider
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(wishlistReducer, initialState);
-  const supabase = createClient();
+  // Using the supabase client directly
 
   // Load wishlist on mount and when user changes
   useEffect(() => {

@@ -48,6 +48,15 @@ class SarieeDebugger {
   logError(url: string, error: any, duration?: number) {
     if (!this.config.enableLogging || !this.config.logErrors) return;
 
+    // Only log errors if we have real API keys (not placeholders)
+    const hasRealApiKey = process.env.NEXT_PUBLIC_SARIEE_API_KEY && 
+                         !process.env.NEXT_PUBLIC_SARIEE_API_KEY.includes('placeholder');
+    
+    if (!hasRealApiKey) {
+      // Silently skip logging for placeholder API keys
+      return;
+    }
+
     console.group(`❌ Sariee API Error: ${url}`);
     console.error('Error:', error);
     if (duration) {

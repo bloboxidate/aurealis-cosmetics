@@ -64,6 +64,17 @@ export function Categories() {
   useEffect(() => {
     async function fetchCategories() {
       try {
+        // Check if Supabase is properly configured
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('placeholder')) {
+          // Use default categories if Supabase is not configured
+          setCategories(defaultCategories);
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase
           .from('categories')
           .select('*')
@@ -71,14 +82,15 @@ export function Categories() {
           .order('name');
 
         if (error) {
-          console.error('Error fetching categories:', error);
-          // Use default categories if Supabase fails
+          console.warn('Supabase not available, using default categories:', error.message);
           setCategories(defaultCategories);
         } else if (data && data.length > 0) {
           setCategories(data);
+        } else {
+          setCategories(defaultCategories);
         }
       } catch (error) {
-        console.error('Error:', error);
+        console.warn('Error connecting to Supabase, using default categories:', error);
         setCategories(defaultCategories);
       } finally {
         setLoading(false);

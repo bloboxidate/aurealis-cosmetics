@@ -86,7 +86,7 @@ export default function MobileHeader() {
 
         {/* Mobile Search (visible on small screens) */}
         <div className="sm:hidden pb-4">
-          <MobileSearch />
+          <GlobalSearch className="w-full max-w-sm" />
         </div>
 
         {/* Mobile Navigation Menu */}

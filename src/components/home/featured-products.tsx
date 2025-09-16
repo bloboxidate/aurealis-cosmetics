@@ -72,6 +72,17 @@ export function FeaturedProducts() {
   useEffect(() => {
     async function fetchFeaturedProducts() {
       try {
+        // Check if Supabase is properly configured
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('placeholder')) {
+          // Use default products if Supabase is not configured
+          setProducts(defaultProducts);
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase
           .from('products')
           .select('*')
@@ -80,13 +91,15 @@ export function FeaturedProducts() {
           .order('created_at', { ascending: false });
 
         if (error) {
-          console.error('Error fetching products:', error);
+          console.warn('Supabase not available, using default products:', error.message);
           setProducts(defaultProducts);
         } else if (data && data.length > 0) {
           setProducts(data);
+        } else {
+          setProducts(defaultProducts);
         }
       } catch (error) {
-        console.error('Error:', error);
+        console.warn('Error connecting to Supabase, using default products:', error);
         setProducts(defaultProducts);
       } finally {
         setLoading(false);
@@ -143,7 +156,7 @@ export function FeaturedProducts() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {products.map((product) => (
             <div key={product.id} className="group relative bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
-              <Link href={`/product/${product.id}`}>
+              <Link href={`/products/${product.id}`}>
                 <div className="aspect-square overflow-hidden rounded-t-lg">
                   <img
                     src={product.images[0] || '/placeholder-product.jpg'}
@@ -155,7 +168,7 @@ export function FeaturedProducts() {
 
               <div className="p-4">
                 <div className="flex items-start justify-between mb-2">
-                  <Link href={`/product/${product.id}`}>
+                  <Link href={`/products/${product.id}`}>
                     <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors line-clamp-2">
                       {product.name}
                     </h3>

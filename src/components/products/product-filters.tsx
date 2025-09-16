@@ -10,13 +10,15 @@ interface ProductFiltersProps {
   currentCategory?: string;
   currentSearch?: string;
   currentSort?: string;
+  currentPriceRange?: string;
 }
 
 export default function ProductFilters({ 
   categories, 
   currentCategory, 
   currentSearch, 
-  currentSort 
+  currentSort,
+  currentPriceRange 
 }: ProductFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,7 +51,7 @@ export default function ProductFilters({
     router.push('/products');
   };
 
-  const hasActiveFilters = currentCategory || currentSearch || currentSort;
+  const hasActiveFilters = currentCategory || currentSearch || currentSort || currentPriceRange;
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
@@ -134,45 +136,55 @@ export default function ProductFilters({
                 type="radio"
                 name="price"
                 value=""
+                checked={!currentPriceRange}
+                onChange={() => updateFilters('price', null)}
                 className="mr-2 sm:mr-3 text-pink-600 focus:ring-pink-500"
               />
               <span className="text-xs sm:text-sm text-gray-700">All Prices</span>
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center py-1 sm:py-2">
               <input
                 type="radio"
                 name="price"
-                value="0-100"
-                className="mr-3 text-pink-600 focus:ring-pink-500"
+                value="0-25"
+                checked={currentPriceRange === '0-25'}
+                onChange={() => updateFilters('price', '0-25')}
+                className="mr-2 sm:mr-3 text-pink-600 focus:ring-pink-500"
               />
-              <span className="text-sm text-gray-700">Under 100 EGP</span>
+              <span className="text-xs sm:text-sm text-gray-700">Under $25</span>
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center py-1 sm:py-2">
               <input
                 type="radio"
                 name="price"
-                value="100-300"
-                className="mr-3 text-pink-600 focus:ring-pink-500"
+                value="25-50"
+                checked={currentPriceRange === '25-50'}
+                onChange={() => updateFilters('price', '25-50')}
+                className="mr-2 sm:mr-3 text-pink-600 focus:ring-pink-500"
               />
-              <span className="text-sm text-gray-700">100 - 300 EGP</span>
+              <span className="text-xs sm:text-sm text-gray-700">$25 - $50</span>
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center py-1 sm:py-2">
               <input
                 type="radio"
                 name="price"
-                value="300-500"
-                className="mr-3 text-pink-600 focus:ring-pink-500"
+                value="50-100"
+                checked={currentPriceRange === '50-100'}
+                onChange={() => updateFilters('price', '50-100')}
+                className="mr-2 sm:mr-3 text-pink-600 focus:ring-pink-500"
               />
-              <span className="text-sm text-gray-700">300 - 500 EGP</span>
+              <span className="text-xs sm:text-sm text-gray-700">$50 - $100</span>
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center py-1 sm:py-2">
               <input
                 type="radio"
                 name="price"
-                value="500+"
-                className="mr-3 text-pink-600 focus:ring-pink-500"
+                value="100+"
+                checked={currentPriceRange === '100+'}
+                onChange={() => updateFilters('price', '100+')}
+                className="mr-2 sm:mr-3 text-pink-600 focus:ring-pink-500"
               />
-              <span className="text-sm text-gray-700">Over 500 EGP</span>
+              <span className="text-xs sm:text-sm text-gray-700">Over $100</span>
             </label>
           </div>
         </div>

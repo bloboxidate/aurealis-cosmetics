@@ -5,11 +5,11 @@ import { Newsletter } from '@/components/home/newsletter';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen">
+    <>
       <Hero />
       <Categories />
       <FeaturedProducts />
       <Newsletter />
-    </div>
+    </>
   );
 }

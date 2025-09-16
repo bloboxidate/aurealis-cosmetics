@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle } from 'lucide-react';
 import sarieeApi from '@/lib/sariee-api';
 import { getErrorMessage } from '@/lib/sariee-error-handler';
+import { supabase, createClientComponentClient } from '@/lib/supabase';
 
 export function RegisterForm() {
   const [formData, setFormData] = useState({
@@ -23,6 +24,21 @@ export function RegisterForm() {
   const [success, setSuccess] = useState(false);
   const router = useRouter();
 
+  // Password strength validation
+  const getPasswordStrength = (password: string) => {
+    let strength = 0;
+    if (password.length >= 8) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/[a-z]/.test(password)) strength++;
+    if (/[0-9]/.test(password)) strength++;
+    if (/[^A-Za-z0-9]/.test(password)) strength++;
+    return strength;
+  };
+
+  const passwordStrength = getPasswordStrength(formData.password);
+  const passwordStrengthText = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'][passwordStrength] || '';
+  const passwordStrengthColor = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-blue-500', 'bg-green-500'][passwordStrength] || 'bg-gray-300';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -35,21 +51,73 @@ export function RegisterForm() {
       return;
     }
 
+    // Validate password strength
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await sarieeApi.register(formData);
-      
-      if (response.status) {
-        setSuccess(true);
-        // Redirect to dashboard after successful registration
-        setTimeout(() => {
-          router.push('/admin');
-        }, 2000);
-      } else {
-        setError(response.message || 'Registration failed');
+      // Try Sariee API first
+      try {
+        const response = await sarieeApi.register(formData);
+        
+        if (response.status) {
+          setSuccess(true);
+          // Redirect to dashboard after successful registration
+          setTimeout(() => {
+            router.push('/account');
+          }, 2000);
+          return;
+        } else {
+          setError(response.message || 'Registration failed');
+        }
+      } catch (sarieeError) {
+        console.warn('Sariee API not available, trying Supabase fallback');
+        
+        // Fallback to Supabase if Sariee API fails
+        try {
+          console.log('Attempting Supabase registration...');
+          console.log('Supabase URL: https://xwyylknqtwhobrjclwkp.supabase.co');
+          console.log('Supabase Key exists:', !!process.env.SUPABASE_KEY);
+          
+          // Use the exact Supabase API format from documentation
+          const supabaseClient = createClientComponentClient();
+          const { data, error: supabaseError } = await supabaseClient.auth.signUp({
+            email: formData.email,
+            password: formData.password,
+            options: {
+              data: {
+                first_name: formData.first_name,
+                last_name: formData.last_name,
+                phone: formData.phone,
+                phone_code: formData.phone_code,
+              }
+            }
+          });
+
+          if (supabaseError) {
+            console.error('Supabase registration error:', supabaseError);
+            setError(supabaseError.message);
+          } else if (data.user) {
+            console.log('Supabase registration successful:', data.user);
+            setSuccess(true);
+            // Redirect to account page after successful registration
+            setTimeout(() => {
+              router.push('/account');
+            }, 2000);
+          } else {
+            setError('Registration failed. Please try again.');
+          }
+        } catch (supabaseFallbackError) {
+          console.error('Supabase registration failed:', supabaseFallbackError);
+          setError('Registration failed. Please check your connection and try again.');
+        }
       }
     } catch (err) {
       console.error('Registration error:', err);
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err) || 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -69,7 +137,10 @@ export function RegisterForm() {
               Registration Successful!
             </h2>
             <p className="mt-2 text-sm text-gray-600">
-              Welcome to Aurealis! Redirecting to your dashboard...
+              Welcome to Aurealis! Redirecting to your account...
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Account created successfully in Supabase
             </p>
           </div>
         </div>
@@ -240,8 +311,13 @@ export function RegisterForm() {
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-gray-400 hover:text-gray-600"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowPassword(!showPassword);
+                    }}
+                    className="text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600"
+                    tabIndex={-1}
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -251,6 +327,32 @@ export function RegisterForm() {
                   </button>
                 </div>
               </div>
+              {/* Password Strength Indicator */}
+              {formData.password && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600">Password strength:</span>
+                    <span className={`font-medium ${
+                      passwordStrength <= 1 ? 'text-red-600' :
+                      passwordStrength <= 2 ? 'text-orange-600' :
+                      passwordStrength <= 3 ? 'text-yellow-600' :
+                      passwordStrength <= 4 ? 'text-blue-600' : 'text-green-600'
+                    }`}>
+                      {passwordStrengthText}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex space-x-1">
+                    {[1, 2, 3, 4, 5].map((level) => (
+                      <div
+                        key={level}
+                        className={`h-1 flex-1 rounded ${
+                          level <= passwordStrength ? passwordStrengthColor : 'bg-gray-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -275,8 +377,13 @@ export function RegisterForm() {
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                   <button
                     type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="text-gray-400 hover:text-gray-600"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowConfirmPassword(!showConfirmPassword);
+                    }}
+                    className="text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600"
+                    tabIndex={-1}
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="h-5 w-5" />
