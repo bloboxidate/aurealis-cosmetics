@@ -4,9 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Bars3Icon, ShoppingCartIcon, UserIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import MobileSearch from '@/components/ui/mobile-search';
+import { useCart } from '@/contexts/cart-context';
 
 export default function MobileHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { state, toggleCart } = useCart();
 
   const navigation = [
     { name: 'Home', href: '/' },
@@ -31,12 +33,17 @@ export default function MobileHeader() {
             <MobileSearch className="hidden sm:block" />
             
             {/* Cart */}
-            <Link href="/cart" className="relative p-2 text-gray-600 hover:text-pink-600 transition-colors">
+            <button 
+              onClick={() => toggleCart(true)}
+              className="relative p-2 text-gray-600 hover:text-pink-600 transition-colors"
+            >
               <ShoppingCartIcon className="w-6 h-6" />
-              <span className="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                0
-              </span>
-            </Link>
+              {state.totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {state.totalItems}
+                </span>
+              )}
+            </button>
 
             {/* User */}
             <Link href="/login" className="p-2 text-gray-600 hover:text-pink-600 transition-colors">

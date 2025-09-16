@@ -7,6 +7,7 @@ import { formatPrice } from '@/lib/utils';
 import { HeartIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import { useState } from 'react';
+import { useCart } from '@/contexts/cart-context';
 
 interface ProductCardProps {
   product: Product;
@@ -14,7 +15,7 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const { addToCart, state } = useCart();
 
   const primaryImage = product.product_images?.find(img => img.is_primary) || product.product_images?.[0];
   const category = product.product_categories?.[0]?.categories;
@@ -23,9 +24,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
     
-    setIsAddingToCart(true);
-    // TODO: Implement add to cart functionality
-    setTimeout(() => setIsAddingToCart(false), 1000);
+    await addToCart(product);
   };
 
   const handleWishlist = async (e: React.MouseEvent) => {
@@ -114,7 +113,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             disabled={isAddingToCart || product.inventory_quantity === 0}
             className="w-full flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-pink-600 hover:bg-pink-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-medium rounded-md transition-colors duration-200"
           >
-            {isAddingToCart ? (
+            {state.isLoading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Adding...

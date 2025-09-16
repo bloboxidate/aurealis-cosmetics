@@ -6,6 +6,7 @@ import { Product } from '@/lib/supabase';
 import { formatPrice } from '@/lib/utils';
 import { HeartIcon, ShoppingCartIcon, StarIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
+import { useCart } from '@/contexts/cart-context';
 
 interface ProductDetailProps {
   product: Product;
@@ -16,7 +17,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const { addToCart, state } = useCart();
 
   const images = product.product_images?.sort((a, b) => a.sort_order - b.sort_order) || [];
   const variants = product.product_variants?.filter(v => v.is_active) || [];
@@ -31,9 +32,8 @@ export default function ProductDetail({ product }: ProductDetailProps) {
     : product.inventory_quantity;
 
   const handleAddToCart = async () => {
-    setIsAddingToCart(true);
-    // TODO: Implement add to cart functionality
-    setTimeout(() => setIsAddingToCart(false), 1000);
+    const variant = variants.find(v => v.id === selectedVariant);
+    await addToCart(product, variant, quantity);
   };
 
   const handleWishlist = () => {
@@ -180,10 +180,10 @@ export default function ProductDetail({ product }: ProductDetailProps) {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleAddToCart}
-              disabled={isAddingToCart || currentInventory === 0}
+              disabled={state.isLoading || currentInventory === 0}
               className="flex-1 flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-pink-600 hover:bg-pink-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm sm:text-base font-medium rounded-md transition-colors"
             >
-              {isAddingToCart ? (
+              {state.isLoading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Adding...
