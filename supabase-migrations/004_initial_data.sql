@@ -1,6 +1,10 @@
 -- Migration: Initial Data
 -- This migration inserts initial site settings and sample data
 
+-- Drop existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Coupons are viewable by everyone" ON public.coupons;
+DROP POLICY IF EXISTS "Site settings are viewable by everyone" ON public.site_settings;
+
 -- Insert initial site settings
 INSERT INTO public.site_settings (key, value, description) VALUES
 ('site_name', '"Aurealis Cosmetics"', 'The name of the website'),
