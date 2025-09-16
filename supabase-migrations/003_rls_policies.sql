@@ -61,10 +61,13 @@ CREATE POLICY "Product images are viewable by everyone" ON public.product_images
 CREATE POLICY "Product variants are viewable by everyone" ON public.product_variants FOR SELECT USING (true);
 
 -- Allow public read access to coupons and site settings
+DROP POLICY IF EXISTS "Coupons are viewable by everyone" ON public.coupons;
 CREATE POLICY "Coupons are viewable by everyone" ON public.coupons FOR SELECT USING (is_active = true);
+DROP POLICY IF EXISTS "Site settings are viewable by everyone" ON public.site_settings;
 CREATE POLICY "Site settings are viewable by everyone" ON public.site_settings FOR SELECT USING (true);
 
 -- Newsletter subscriptions - users can manage their own
+DROP POLICY IF EXISTS "Users can manage own newsletter subscription" ON public.newsletter_subscriptions;
 CREATE POLICY "Users can manage own newsletter subscription" ON public.newsletter_subscriptions FOR ALL USING (
     auth.uid() = user_id OR user_id IS NULL
 );
