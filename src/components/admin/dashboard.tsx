@@ -12,8 +12,8 @@ import {
   Trash2,
   Plus
 } from 'lucide-react';
-import sarieeApi from '@/lib/sariee-api';
-import { getErrorMessage } from '@/lib/sariee-error-handler';
+// Removed Sariee API import - using Supabase instead
+// Removed Sariee error handler import
 
 interface DashboardStats {
   totalOrders: number;
@@ -38,11 +38,11 @@ export function AdminDashboard() {
       setLoading(true);
       setError(null);
 
-      // Fetch products and categories from Sariee API
-      const [productsResponse, categoriesResponse] = await Promise.all([
-        sarieeApi.getAllProducts({ type: 'unseperated', per_page: 10 }),
-        sarieeApi.getCategories({ per_page: 10 })
-      ]);
+      // TODO: Implement Supabase data fetching for admin dashboard
+      // const [productsResponse, categoriesResponse] = await Promise.all([
+      //   supabase.from('products').select('*').limit(10),
+      //   supabase.from('categories').select('*').limit(10)
+      // ]);
 
       if (productsResponse.status && categoriesResponse.status) {
         // Calculate mock stats based on available data

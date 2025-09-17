@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import sarieeApi from '@/lib/sariee-api';
+import { supabase } from '@/lib/supabase';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
 
 interface SearchFiltersProps {
@@ -36,14 +36,15 @@ export default function SearchFilters({
   const loadCategories = async () => {
     try {
       setIsLoading(true);
-      const response = await sarieeApi.getCategories();
-      if (response.status && response.data) {
-        // Convert Sariee categories to our format
-        const categoriesData: Category[] = response.data.map((cat: any) => ({
-          id: cat.id,
-          name: cat.name,
-          slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
-        }));
+      const { data: categoriesData, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+
+      if (error) {
+        console.error('Error loading categories:', error);
+      } else if (categoriesData) {
         setCategories(categoriesData);
       }
     } catch (error) {

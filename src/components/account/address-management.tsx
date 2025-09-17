@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import sarieeApi from '@/lib/sariee-api';
 import { 
   MapPinIcon, 
   PlusIcon, 
@@ -63,25 +62,18 @@ export default function AddressManagement() {
         return;
       }
 
-      // Load addresses from Sariee API
-      const response = await sarieeApi.getAddresses();
-      if (response.status && response.data) {
-        // Convert Sariee address format to our format
-        const addressesData: Address[] = response.data.map((addr: any) => ({
-          id: addr.id,
-          name: addr.name,
-          street: addr.street,
-          building: addr.building,
-          floor: addr.floor,
-          flat: addr.flat,
-          landmark: addr.landmark,
-          phone: addr.phone,
-          city_id: addr.city_id,
-          is_default: addr.is_default === 1,
-        }));
+      // Load addresses from Supabase
+      const { data: addressesData, error } = await supabase
+        .from('user_addresses')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (error) {
+        throw new Error(error.message || 'Failed to load addresses');
+      }
+
+      if (addressesData) {
         setAddresses(addressesData);
-      } else {
-        throw new Error(response.message || 'Failed to load addresses');
       }
     } catch (error) {
       console.error('Error loading addresses:', error);
@@ -135,26 +127,62 @@ export default function AddressManagement() {
         city_id: formData.city_id,
       };
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       if (editingAddress) {
         // Update existing address
-        const response = await sarieeApi.updateAddress(editingAddress, addressData);
-        if (response.status && response.data) {
-          setSuccess('Address updated successfully!');
-          await loadAddresses();
-          resetForm();
-        } else {
-          throw new Error(response.message || 'Failed to update address');
+        const { error } = await supabase
+          .from('user_addresses')
+          .update({
+            name: formData.name,
+            street: formData.street,
+            building: formData.building,
+            floor: formData.floor,
+            flat: formData.flat,
+            landmark: formData.landmark || '',
+            phone: formData.phone,
+            city_id: formData.city_id,
+            is_default: formData.is_default,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingAddress.id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          throw new Error(error.message || 'Failed to update address');
         }
+
+        setSuccess('Address updated successfully!');
+        await loadAddresses();
+        resetForm();
       } else {
         // Add new address
-        const response = await sarieeApi.addAddress(addressData);
-        if (response.status && response.data) {
-          setSuccess('Address added successfully!');
-          await loadAddresses();
-          resetForm();
-        } else {
-          throw new Error(response.message || 'Failed to add address');
+        const { error } = await supabase
+          .from('user_addresses')
+          .insert({
+            user_id: user.id,
+            name: formData.name,
+            street: formData.street,
+            building: formData.building,
+            floor: formData.floor,
+            flat: formData.flat,
+            landmark: formData.landmark || '',
+            phone: formData.phone,
+            city_id: formData.city_id,
+            is_default: formData.is_default,
+            created_at: new Date().toISOString(),
+          });
+
+        if (error) {
+          throw new Error(error.message || 'Failed to add address');
         }
+
+        setSuccess('Address added successfully!');
+        await loadAddresses();
+        resetForm();
       }
     } catch (error) {
       console.error('Error saving address:', error);

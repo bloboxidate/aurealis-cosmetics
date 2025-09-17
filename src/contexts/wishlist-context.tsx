@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import sarieeApi from '@/lib/sariee-api';
 import { Product } from '@/lib/supabase';
 
 // Types
@@ -85,72 +84,20 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // Load from Sariee API for authenticated users
-        const response = await sarieeApi.getWishlist();
+        // Load from Supabase for authenticated users
+        const { data: wishlistItems, error } = await supabase
+          .from('wishlist_items')
+          .select(`
+            *,
+            product:products(*)
+          `)
+          .eq('user_id', user.id);
         
-        if (response.status && response.data) {
-          // Convert Sariee products to our format
-          const products: Product[] = response.data.map((sarieeProduct: any) => ({
-            id: sarieeProduct.id,
-            sariee_product_id: sarieeProduct.id,
-            name: sarieeProduct.name || 'Product',
-            description: sarieeProduct.description || '',
-            price: sarieeProduct.price || 0,
-            compare_price: sarieeProduct.compare_price,
-            sku: sarieeProduct.sku || '',
-            inventory_quantity: sarieeProduct.inventory_quantity || 0,
-            is_featured: sarieeProduct.is_featured || false,
-            is_active: sarieeProduct.is_active !== false,
-            created_at: sarieeProduct.created_at || new Date().toISOString(),
-            updated_at: sarieeProduct.updated_at || new Date().toISOString(),
-            // Map Sariee product images
-            product_images: sarieeProduct.images?.map((img: any, index: number) => ({
-              id: img.id || `img_${index}`,
-              product_id: sarieeProduct.id,
-              image_url: img.src || img.url,
-              alt_text: img.alt || sarieeProduct.name,
-              is_primary: index === 0,
-              sort_order: index,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })) || [],
-            // Map Sariee categories
-            product_categories: sarieeProduct.categories?.map((cat: any) => ({
-              id: `pc_${cat.id}`,
-              product_id: sarieeProduct.id,
-              category_id: cat.id,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              categories: {
-                id: cat.id,
-                name: cat.name,
-                slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
-                description: cat.description || '',
-                image_url: cat.image?.src || null,
-                is_featured: cat.is_featured || false,
-                is_active: cat.is_active !== false,
-                sort_order: cat.sort_order || 0,
-                created_at: cat.created_at || new Date().toISOString(),
-                updated_at: cat.updated_at || new Date().toISOString(),
-              },
-            })) || [],
-            // Map Sariee variants
-            product_variants: sarieeProduct.variants?.map((variant: any) => ({
-              id: variant.id,
-              product_id: sarieeProduct.id,
-              name: variant.name || 'Default',
-              sku: variant.sku || '',
-              price: variant.price || sarieeProduct.price,
-              inventory_quantity: variant.inventory_quantity || 0,
-              is_active: variant.is_active !== false,
-              created_at: variant.created_at || new Date().toISOString(),
-              updated_at: variant.updated_at || new Date().toISOString(),
-            })) || [],
-          }));
-          
-          dispatch({ type: 'SET_WISHLIST', payload: products });
+        if (error) {
+          dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to load wishlist' });
         } else {
-          throw new Error(response.message || 'Failed to load wishlist');
+          const products: Product[] = wishlistItems?.map(item => item.product).filter(Boolean) || [];
+          dispatch({ type: 'SET_WISHLIST', payload: products });
         }
       } else {
         // Load from localStorage for guest users
@@ -182,13 +129,19 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // Add to Sariee API for authenticated users
-        const response = await sarieeApi.addToWishlist(product.id);
+        // Add to Supabase for authenticated users
+        const { error } = await supabase
+          .from('wishlist_items')
+          .insert({
+            user_id: user.id,
+            product_id: product.id,
+            created_at: new Date().toISOString(),
+          });
         
-        if (response.status) {
-          dispatch({ type: 'ADD_TO_WISHLIST', payload: product });
+        if (error) {
+          throw new Error(error.message || 'Failed to add to wishlist');
         } else {
-          throw new Error(response.message || 'Failed to add to wishlist');
+          dispatch({ type: 'ADD_TO_WISHLIST', payload: product });
         }
       } else {
         // Add to localStorage for guest users
@@ -210,13 +163,17 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // Remove from Sariee API for authenticated users
-        const response = await sarieeApi.removeFromWishlist(productId);
+        // Remove from Supabase for authenticated users
+        const { error } = await supabase
+          .from('wishlist_items')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('product_id', productId);
         
-        if (response.status) {
-          dispatch({ type: 'REMOVE_FROM_WISHLIST', payload: productId });
+        if (error) {
+          throw new Error(error.message || 'Failed to remove from wishlist');
         } else {
-          throw new Error(response.message || 'Failed to remove from wishlist');
+          dispatch({ type: 'REMOVE_FROM_WISHLIST', payload: productId });
         }
       } else {
         // Remove from localStorage for guest users
@@ -238,13 +195,16 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // Clear from Sariee API for authenticated users
-        const response = await sarieeApi.clearWishlist();
+        // Clear from Supabase for authenticated users
+        const { error } = await supabase
+          .from('wishlist_items')
+          .delete()
+          .eq('user_id', user.id);
         
-        if (response.status) {
-          dispatch({ type: 'CLEAR_WISHLIST' });
+        if (error) {
+          throw new Error(error.message || 'Failed to clear wishlist');
         } else {
-          throw new Error(response.message || 'Failed to clear wishlist');
+          dispatch({ type: 'CLEAR_WISHLIST' });
         }
       } else {
         // Clear from localStorage for guest users

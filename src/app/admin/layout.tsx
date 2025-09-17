@@ -14,7 +14,7 @@ import {
   X,
   LogOut
 } from 'lucide-react';
-import sarieeApi from '@/lib/sariee-api';
+// Removed Sariee API import - using Supabase instead
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -40,9 +40,10 @@ export default function AdminLayout({
     checkAuthentication();
   }, []);
 
-  const checkAuthentication = () => {
-    const token = sarieeApi.getAccessToken();
-    if (token) {
+  const checkAuthentication = async () => {
+    // Check Supabase authentication instead
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
       setIsAuthenticated(true);
     } else {
       router.push('/login');
@@ -50,8 +51,8 @@ export default function AdminLayout({
     setLoading(false);
   };
 
-  const handleLogout = () => {
-    sarieeApi.clearToken();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsAuthenticated(false);
     router.push('/login');
   };

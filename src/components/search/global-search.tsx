@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import sarieeApi from '@/lib/sariee-api';
+import { supabase } from '@/lib/supabase';
 
 interface SearchSuggestion {
   id: string;
@@ -85,19 +85,27 @@ export default function GlobalSearch({
     if (value.trim().length >= 2) {
       setIsLoading(true);
       try {
-        // Search for suggestions using Sariee API
-        const response = await sarieeApi.searchProducts({
-          query: value.trim(),
-          per_page: 5,
-          type: 'unseperated',
-        });
+        // Search for suggestions using Supabase
+        const { data: products, error } = await supabase
+          .from('products')
+          .select(`
+            id,
+            name,
+            product_images(image_url)
+          `)
+          .or(`name.ilike.%${value.trim()}%,description.ilike.%${value.trim()}%`)
+          .eq('is_active', true)
+          .limit(5);
 
-        if (response.status && response.data) {
-          const searchSuggestions: SearchSuggestion[] = response.data.map((product: any) => ({
+        if (error) {
+          console.error('Search suggestions error:', error);
+          setSuggestions([]);
+        } else if (products) {
+          const searchSuggestions: SearchSuggestion[] = products.map((product: any) => ({
             id: product.id,
             name: product.name,
             type: 'product' as const,
-            image: product.images?.[0]?.src || product.images?.[0]?.url,
+            image: product.product_images?.[0]?.image_url,
           }));
           setSuggestions(searchSuggestions);
           setIsOpen(true);

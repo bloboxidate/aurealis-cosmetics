@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
-import sarieeApi from '@/lib/sariee-api';
-import { getErrorMessage, isSarieeError } from '@/lib/sariee-error-handler';
+import { createClientComponentClient } from '@/lib/supabase';
 
 export function LoginForm() {
   const [formData, setFormData] = useState({
@@ -22,17 +21,21 @@ export function LoginForm() {
     setError(null);
 
     try {
-      const response = await sarieeApi.login(formData.email, formData.password);
+      const supabaseClient = createClientComponentClient();
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
       
-      if (response.status) {
+      if (error) {
+        setError(error.message || 'Login failed');
+      } else if (data.user) {
         // Redirect to dashboard or home page
-        router.push('/admin');
-      } else {
-        setError(response.message || 'Login failed');
+        router.push('/account');
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(getErrorMessage(err));
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }

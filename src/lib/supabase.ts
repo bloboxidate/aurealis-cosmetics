@@ -2,7 +2,12 @@
 import { createBrowserClient } from '@supabase/ssr'
 
 const supabaseUrl = 'https://xwyylknqtwhobrjclwkp.supabase.co'
-const supabaseKey = process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || 'placeholder-key'
+
+// Check if we have a valid Supabase key
+if (supabaseKey === 'placeholder-key') {
+  console.warn('⚠️ Supabase key not configured. Please set NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file')
+}
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 

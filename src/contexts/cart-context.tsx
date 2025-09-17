@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import sarieeApi from '@/lib/sariee-api';
 import { Product, ProductVariant } from '@/lib/supabase';
 
 interface CartItem {
@@ -33,8 +32,7 @@ type CartAction =
   | { type: 'UPDATE_ITEM'; payload: { id: string; quantity: number } }
   | { type: 'REMOVE_ITEM'; payload: string }
   | { type: 'CLEAR_CART' }
-  | { type: 'TOGGLE_CART'; payload: boolean }
-  | { type: 'SYNC_WITH_SARIEE'; payload: CartItem[] };
+  | { type: 'TOGGLE_CART'; payload: boolean };
 
 const initialState: CartState = {
   items: [],
@@ -123,13 +121,6 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     case 'TOGGLE_CART':
       return { ...state, isOpen: action.payload };
     
-    case 'SYNC_WITH_SARIEE':
-      return {
-        ...state,
-        items: action.payload,
-        totalItems: action.payload.reduce((sum, item) => sum + item.quantity, 0),
-        totalPrice: action.payload.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-      };
     
     default:
       return state;
@@ -138,12 +129,11 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 
 interface CartContextType {
   state: CartState;
-  addToCart: (product: Product, variant?: ProductVariant, quantity?: number) => Promise<void>;
+  addToCart: (product: Product, quantity?: number, variant?: ProductVariant) => Promise<void>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
   removeFromCart: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
   toggleCart: (isOpen: boolean) => void;
-  syncWithSariee: () => Promise<void>;
   loadCart: () => Promise<void>;
 }
 
@@ -170,17 +160,42 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
-      // Try to load from localStorage first
-      const localCart = localStorage.getItem('aurealis_cart');
-      if (localCart) {
-        const items = JSON.parse(localCart);
-        dispatch({ type: 'SET_ITEMS', payload: items });
-      }
-      
-      // If user is authenticated, try to sync with Sariee
       const { data: { user } } = await supabase.auth.getUser();
+      
       if (user) {
-        await syncWithSariee();
+        // User is authenticated - load from Supabase
+        const { data: cartItems, error } = await supabase
+          .from('cart_items')
+          .select(`
+            *,
+            product:products(*),
+            variant:product_variants(*)
+          `)
+          .eq('user_id', user.id);
+
+        if (error) {
+          throw new Error(error.message || 'Failed to load cart');
+        }
+
+        const items: CartItem[] = cartItems?.map(item => ({
+          id: `${item.product_id}-${item.variant_id || 'default'}`,
+          product_id: item.product_id,
+          variant_id: item.variant_id,
+          quantity: item.quantity,
+          price: item.price,
+          product: item.product,
+          variant: item.variant,
+          added_at: item.created_at,
+        })) || [];
+
+        dispatch({ type: 'SET_ITEMS', payload: items });
+      } else {
+        // User not authenticated - load from localStorage
+        const localCart = localStorage.getItem('aurealis_cart');
+        if (localCart) {
+          const items = JSON.parse(localCart);
+          dispatch({ type: 'SET_ITEMS', payload: items });
+        }
       }
     } catch (error) {
       console.error('Error loading cart:', error);
@@ -198,19 +213,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // User is authenticated - use Sariee API
-        const response = await sarieeApi.addToCart({
-          product_id: product.sariee_product_id,
-          quantity,
-          product_barcode_id: variant?.sariee_barcode_id,
-        });
+        // User is authenticated - use Supabase
+        const { error } = await supabase
+          .from('cart_items')
+          .upsert({
+            user_id: user.id,
+            product_id: product.id,
+            variant_id: variant?.id,
+            quantity,
+            price: variant?.price || product.price,
+            updated_at: new Date().toISOString(),
+          });
 
-        if (response.status) {
-          // Refresh cart from Sariee
-          await syncWithSariee();
-        } else {
-          throw new Error(response.message || 'Failed to add item to cart');
+        if (error) {
+          throw new Error(error.message || 'Failed to add item to cart');
         }
+
+        // Refresh cart from Supabase
+        await loadCart();
       } else {
         // User not authenticated - use local storage
         const cartItem: CartItem = {
@@ -242,20 +262,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // User is authenticated - use Sariee API
+        // User is authenticated - use Supabase
         const item = state.items.find(item => item.id === itemId);
         if (item) {
-          const response = await sarieeApi.addToCart({
-            product_id: item.product.sariee_product_id,
-            quantity,
-            product_barcode_id: item.variant?.sariee_barcode_id,
-          });
+          const { error } = await supabase
+            .from('cart_items')
+            .update({ 
+              quantity,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', user.id)
+            .eq('product_id', item.product_id)
+            .eq('variant_id', item.variant_id || null);
 
-          if (response.status) {
-            await syncWithSariee();
-          } else {
-            throw new Error(response.message || 'Failed to update cart item');
+          if (error) {
+            throw new Error(error.message || 'Failed to update cart item');
           }
+
+          await loadCart();
         }
       } else {
         // User not authenticated - use local storage
@@ -277,21 +301,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // User is authenticated - use Sariee API
+        // User is authenticated - use Supabase
         const item = state.items.find(item => item.id === itemId);
         if (item) {
-          // Set quantity to 0 to remove from Sariee cart
-          const response = await sarieeApi.addToCart({
-            product_id: item.product.sariee_product_id,
-            quantity: 0,
-            product_barcode_id: item.variant?.sariee_barcode_id,
-          });
+          const { error } = await supabase
+            .from('cart_items')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('product_id', item.product_id)
+            .eq('variant_id', item.variant_id || null);
 
-          if (response.status) {
-            await syncWithSariee();
-          } else {
-            throw new Error(response.message || 'Failed to remove cart item');
+          if (error) {
+            throw new Error(error.message || 'Failed to remove cart item');
           }
+
+          await loadCart();
         }
       } else {
         // User not authenticated - use local storage
@@ -313,11 +337,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // User is authenticated - clear Sariee cart
-        // We'll need to implement a clear cart API call or remove items individually
-        // For now, we'll clear locally and sync
-        dispatch({ type: 'CLEAR_CART' });
-        await syncWithSariee();
+        // User is authenticated - clear Supabase cart
+        const { error } = await supabase
+          .from('cart_items')
+          .delete()
+          .eq('user_id', user.id);
+
+        if (error) {
+          throw new Error(error.message || 'Failed to clear cart');
+        }
+
+        await loadCart();
       } else {
         // User not authenticated - clear local storage
         dispatch({ type: 'CLEAR_CART' });
@@ -330,33 +360,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const syncWithSariee = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const response = await sarieeApi.getCart();
-      if (response.status && response.data) {
-        // Sariee API returns cart data directly in response.data
-        // Convert Sariee cart items to our format
-        const cartItems: CartItem[] = response.data.items?.map((item: any) => ({
-          id: item.id || `${item.product_id}-${item.product_barcode_id || 'default'}`,
-          product_id: item.product_id,
-          variant_id: item.product_barcode_id,
-          quantity: item.quantity,
-          price: item.price,
-          product: item.product || { id: item.product_id, name: 'Product', price: item.price },
-          variant: item.variant,
-          added_at: item.created_at || new Date().toISOString(),
-        })) || [];
-
-        dispatch({ type: 'SYNC_WITH_SARIEE', payload: cartItems });
-      }
-    } catch (error) {
-      console.error('Error syncing with Sariee:', error);
-      // Don't show error to user, just log it
-    }
-  };
 
   const toggleCart = (isOpen: boolean) => {
     dispatch({ type: 'TOGGLE_CART', payload: isOpen });
@@ -371,7 +374,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         removeFromCart,
         clearCart,
         toggleCart,
-        syncWithSariee,
         loadCart,
       }}
     >

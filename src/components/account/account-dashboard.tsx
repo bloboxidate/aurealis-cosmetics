@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import sarieeApi from '@/lib/sariee-api';
 import { formatPrice } from '@/lib/utils';
 import { 
   ShoppingBagIcon, 
@@ -61,32 +60,67 @@ export default function AccountDashboard() {
         return;
       }
 
-      // Load user profile from Sariee
-      const profileResponse = await sarieeApi.getUserProfile();
-      if (profileResponse.status && profileResponse.data) {
-        setUser(profileResponse.data.user);
+      // Load user profile from Supabase
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .single();
+
+      if (userProfile) {
+        setUser({
+          id: authUser.id,
+          first_name: userProfile.first_name || '',
+          last_name: userProfile.last_name || '',
+          email: authUser.email || '',
+          phone: userProfile.phone || '',
+          full_name: `${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim(),
+        });
+      } else {
+        // Create default profile from auth user
+        setUser({
+          id: authUser.id,
+          first_name: authUser.user_metadata?.first_name || '',
+          last_name: authUser.user_metadata?.last_name || '',
+          email: authUser.email || '',
+          phone: authUser.user_metadata?.phone || '',
+          full_name: `${authUser.user_metadata?.first_name || ''} ${authUser.user_metadata?.last_name || ''}`.trim(),
+        });
       }
 
-      // Load recent orders
-      const ordersResponse = await sarieeApi.getUserOrders();
-      if (ordersResponse.status && ordersResponse.data) {
-        const recentOrdersData = ordersResponse.data.slice(0, 5).map((order: any) => ({
+      // Load recent orders from Supabase
+      const { data: orders } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items(count)
+        `)
+        .eq('user_id', authUser.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (orders) {
+        const recentOrdersData = orders.map((order: any) => ({
           id: order.id,
           status: order.status,
-          total: order.total || order.amount,
+          total: order.total_amount,
           created_at: order.created_at,
-          items_count: order.items?.length || 0,
+          items_count: order.order_items?.[0]?.count || 0,
         }));
         setRecentOrders(recentOrdersData);
       }
 
-      // Load addresses
-      const addressesResponse = await sarieeApi.getAddresses();
-      if (addressesResponse.status && addressesResponse.data) {
-        const addressesData = addressesResponse.data.map((addr: any) => ({
+      // Load addresses from Supabase
+      const { data: userAddresses } = await supabase
+        .from('user_addresses')
+        .select('*')
+        .eq('user_id', authUser.id);
+
+      if (userAddresses) {
+        const addressesData = userAddresses.map((addr: any) => ({
           id: addr.id,
           name: addr.name,
-          is_default: addr.is_default === 1,
+          is_default: addr.is_default,
         }));
         setAddresses(addressesData);
       }

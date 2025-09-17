@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Address } from './checkout-content';
 import { useCart } from '@/contexts/cart-context';
 import { supabase } from '@/lib/supabase';
-import sarieeApi from '@/lib/sariee-api';
 import { formatPrice } from '@/lib/utils';
 import { MapPinIcon, UserIcon, PhoneIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
 
@@ -55,11 +54,17 @@ export default function ShippingForm({
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // Load addresses from Sariee API
-        const response = await sarieeApi.getAddresses();
-        if (response.status && response.data) {
-          // Convert Sariee address format to our format
-          const sarieeAddresses: Address[] = response.data.map((addr: any) => ({
+        // Load addresses from Supabase
+        const { data: userAddresses, error } = await supabase
+          .from('user_addresses')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Error loading addresses:', error);
+        } else if (userAddresses) {
+          // Convert Supabase address format to our format
+          const addresses: Address[] = userAddresses.map((addr: any) => ({
             id: addr.id,
             name: addr.name,
             street: addr.street,
@@ -69,13 +74,13 @@ export default function ShippingForm({
             landmark: addr.landmark,
             phone: addr.phone,
             city_id: addr.city_id,
-            is_default: addr.is_default === 1,
+            is_default: addr.is_default,
           }));
           
-          setAddresses(sarieeAddresses);
+          setAddresses(addresses);
           
           // Set default address
-          const defaultAddr = sarieeAddresses.find(addr => addr.is_default);
+          const defaultAddr = addresses.find(addr => addr.is_default);
           if (defaultAddr && !shippingAddress) {
             onShippingAddressChange(defaultAddr);
           }
@@ -113,43 +118,65 @@ export default function ShippingForm({
         city_id: newAddress.city_id!,
       };
       
-      const response = await sarieeApi.addAddress(addressData);
-      if (response.status && response.data) {
-        const savedAddress: Address = {
-          id: response.data.id,
-          name: response.data.name,
-          street: response.data.street,
-          building: response.data.building,
-          floor: response.data.floor,
-          flat: response.data.flat,
-          landmark: response.data.landmark,
-          phone: response.data.phone,
-          city_id: response.data.city_id,
-          is_default: response.data.is_default === 1,
-        };
-        
-        setAddresses((prev: Address[]) => [...prev, savedAddress]);
-        onShippingAddressChange(savedAddress);
-        
-        if (useSameAddress) {
-          onBillingAddressChange(savedAddress);
-        }
-        
-        setShowNewAddressForm(false);
-        setNewAddress({
-          name: '',
-          street: '',
-          building: '',
-          floor: '',
-          flat: '',
-          landmark: '',
-          phone: '',
-          city_id: '',
-          is_default: false,
-        });
-      } else {
-        throw new Error(response.message || 'Failed to save address');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
       }
+
+      const { data: savedAddress, error } = await supabase
+        .from('user_addresses')
+        .insert({
+          user_id: user.id,
+          name: newAddress.name!,
+          street: newAddress.street!,
+          building: newAddress.building!,
+          floor: newAddress.floor!,
+          flat: newAddress.flat!,
+          landmark: newAddress.landmark || '',
+          phone: newAddress.phone!,
+          city_id: newAddress.city_id!,
+          is_default: newAddress.is_default,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(error.message || 'Failed to save address');
+      }
+
+      const address: Address = {
+        id: savedAddress.id,
+        name: savedAddress.name,
+        street: savedAddress.street,
+        building: savedAddress.building,
+        floor: savedAddress.floor,
+        flat: savedAddress.flat,
+        landmark: savedAddress.landmark,
+        phone: savedAddress.phone,
+        city_id: savedAddress.city_id,
+        is_default: savedAddress.is_default,
+      };
+      
+      setAddresses((prev: Address[]) => [...prev, address]);
+      onShippingAddressChange(address);
+      
+      if (useSameAddress) {
+        onBillingAddressChange(address);
+      }
+      
+      setShowNewAddressForm(false);
+      setNewAddress({
+        name: '',
+        street: '',
+        building: '',
+        floor: '',
+        flat: '',
+        landmark: '',
+        phone: '',
+        city_id: '',
+        is_default: false,
+      });
     } catch (error) {
       console.error('Error saving address:', error);
     } finally {

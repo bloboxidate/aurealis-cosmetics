@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle } from 'lucide-react';
-import sarieeApi from '@/lib/sariee-api';
-import { getErrorMessage } from '@/lib/sariee-error-handler';
-import { supabase, createClientComponentClient } from '@/lib/supabase';
+import { createClientComponentClient } from '@/lib/supabase';
 
 export function RegisterForm() {
   const [formData, setFormData] = useState({
@@ -59,65 +57,53 @@ export function RegisterForm() {
     }
 
     try {
-      // Try Sariee API first
-      try {
-        const response = await sarieeApi.register(formData);
-        
-        if (response.status) {
-          setSuccess(true);
-          // Redirect to dashboard after successful registration
-          setTimeout(() => {
-            router.push('/account');
-          }, 2000);
-          return;
-        } else {
-          setError(response.message || 'Registration failed');
-        }
-      } catch (sarieeError) {
-        console.warn('Sariee API not available, trying Supabase fallback');
-        
-        // Fallback to Supabase if Sariee API fails
-        try {
-          console.log('Attempting Supabase registration...');
-          console.log('Supabase URL: https://xwyylknqtwhobrjclwkp.supabase.co');
-          console.log('Supabase Key exists:', !!process.env.SUPABASE_KEY);
-          
-          // Use the exact Supabase API format from documentation
-          const supabaseClient = createClientComponentClient();
-          const { data, error: supabaseError } = await supabaseClient.auth.signUp({
-            email: formData.email,
-            password: formData.password,
-            options: {
-              data: {
-                first_name: formData.first_name,
-                last_name: formData.last_name,
-                phone: formData.phone,
-                phone_code: formData.phone_code,
-              }
-            }
-          });
-
-          if (supabaseError) {
-            console.error('Supabase registration error:', supabaseError);
-            setError(supabaseError.message);
-          } else if (data.user) {
-            console.log('Supabase registration successful:', data.user);
-            setSuccess(true);
-            // Redirect to account page after successful registration
-            setTimeout(() => {
-              router.push('/account');
-            }, 2000);
-          } else {
-            setError('Registration failed. Please try again.');
+      console.log('Attempting Supabase registration...');
+      console.log('Supabase URL: https://xwyylknqtwhobrjclwkp.supabase.co');
+      console.log('Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+      
+      // Check if Supabase is properly configured
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!supabaseKey || supabaseKey === 'placeholder-key') {
+        setError('Supabase is not properly configured. Please contact the administrator.');
+        setLoading(false);
+        return;
+      }
+      
+      // Use Supabase for user registration
+      const supabaseClient = createClientComponentClient();
+      const { data, error: supabaseError } = await supabaseClient.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+            phone: formData.phone,
+            phone_code: formData.phone_code,
           }
-        } catch (supabaseFallbackError) {
-          console.error('Supabase registration failed:', supabaseFallbackError);
-          setError('Registration failed. Please check your connection and try again.');
         }
+      });
+
+      if (supabaseError) {
+        console.error('Supabase registration error:', supabaseError);
+        setError(supabaseError.message);
+      } else if (data.user) {
+        console.log('Supabase registration successful:', data.user);
+        setSuccess(true);
+        // Redirect to account page after successful registration
+        setTimeout(() => {
+          router.push('/account');
+        }, 2000);
+      } else {
+        setError('Registration failed. Please try again.');
       }
     } catch (err) {
       console.error('Registration error:', err);
-      setError(getErrorMessage(err) || 'An unexpected error occurred. Please try again.');
+      if (err instanceof Error && err.message.includes('Failed to fetch')) {
+        setError('Unable to connect to the server. Please check your internet connection and try again.');
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

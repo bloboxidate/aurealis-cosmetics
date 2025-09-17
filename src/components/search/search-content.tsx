@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import sarieeApi from '@/lib/sariee-api';
+import { supabase } from '@/lib/supabase';
 import { Product } from '@/lib/supabase';
 import ProductGrid from '@/components/products/product-grid';
 import SearchFilters from '@/components/search/search-filters';
@@ -49,7 +49,7 @@ export default function SearchContent({ searchParams }: SearchContentProps) {
       setError(null);
 
       // Prepare search parameters
-      const searchParams = {
+      const searchQuery = {
         query: urlSearchParams.get('q') || undefined,
         category: urlSearchParams.get('category') || undefined,
         min_price: urlSearchParams.get('min_price') ? parseFloat(urlSearchParams.get('min_price')!) : undefined,
@@ -58,86 +58,66 @@ export default function SearchContent({ searchParams }: SearchContentProps) {
         sort_direction: 'desc' as 'asc' | 'desc',
         per_page: 12,
         page: urlSearchParams.get('page') ? parseInt(urlSearchParams.get('page')!) : 1,
-        type: 'unseperated' as 'seperated' | 'unseperated',
       };
 
-      // Call Sariee API search
-      const response = await sarieeApi.searchProducts(searchParams);
-      
-      if (response.status && response.data) {
-        // Convert Sariee products to our format
-        const products: Product[] = response.data.map((sarieeProduct: any) => ({
-          id: sarieeProduct.id,
-          sariee_product_id: sarieeProduct.id,
-          name: sarieeProduct.name || 'Product',
-          description: sarieeProduct.description || '',
-          price: sarieeProduct.price || 0,
-          compare_price: sarieeProduct.compare_price,
-          sku: sarieeProduct.sku || '',
-          inventory_quantity: sarieeProduct.inventory_quantity || 0,
-          is_featured: sarieeProduct.is_featured || false,
-          is_active: sarieeProduct.is_active !== false,
-          created_at: sarieeProduct.created_at || new Date().toISOString(),
-          updated_at: sarieeProduct.updated_at || new Date().toISOString(),
-          // Map Sariee product images
-          product_images: sarieeProduct.images?.map((img: any, index: number) => ({
-            id: img.id || `img_${index}`,
-            product_id: sarieeProduct.id,
-            image_url: img.src || img.url,
-            alt_text: img.alt || sarieeProduct.name,
-            is_primary: index === 0,
-            sort_order: index,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })) || [],
-          // Map Sariee categories
-          product_categories: sarieeProduct.categories?.map((cat: any) => ({
-            id: `pc_${cat.id}`,
-            product_id: sarieeProduct.id,
-            category_id: cat.id,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            categories: {
-              id: cat.id,
-              name: cat.name,
-              slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
-              description: cat.description || '',
-              image_url: cat.image?.src || null,
-              is_featured: cat.is_featured || false,
-              is_active: cat.is_active !== false,
-              sort_order: cat.sort_order || 0,
-              created_at: cat.created_at || new Date().toISOString(),
-              updated_at: cat.updated_at || new Date().toISOString(),
-            },
-          })) || [],
-          // Map Sariee variants
-          product_variants: sarieeProduct.variants?.map((variant: any) => ({
-            id: variant.id,
-            product_id: sarieeProduct.id,
-            name: variant.name || 'Default',
-            sku: variant.sku || '',
-            price: variant.price || sarieeProduct.price,
-            inventory_quantity: variant.inventory_quantity || 0,
-            is_active: variant.is_active !== false,
-            created_at: variant.created_at || new Date().toISOString(),
-            updated_at: variant.updated_at || new Date().toISOString(),
-          })) || [],
-        }));
+      // Build Supabase query
+      let query = supabase
+        .from('products')
+        .select(`
+          *,
+          product_images(*),
+          product_categories(
+            *,
+            categories(*)
+          ),
+          product_variants(*)
+        `)
+        .eq('is_active', true);
 
-        // Calculate pagination info
-        const totalCount = response._meta?.pagination?.total || products.length;
-        const currentPage = response._meta?.pagination?.current_page || 1;
-        const totalPages = response._meta?.pagination?.last_page || 1;
-
-        setResults({
-          products,
-          totalCount,
-          currentPage,
-          totalPages,
-        });
-      } else {
-        throw new Error(response.message || 'Search failed');
+      // Apply search filters
+      if (searchQuery.query) {
+        query = query.or(`name.ilike.%${searchQuery.query}%,description.ilike.%${searchQuery.query}%`);
       }
+
+      if (searchQuery.category) {
+        query = query.eq('product_categories.categories.slug', searchQuery.category);
+      }
+
+      if (searchQuery.min_price !== undefined) {
+        query = query.gte('price', searchQuery.min_price);
+      }
+
+      if (searchQuery.max_price !== undefined) {
+        query = query.lte('price', searchQuery.max_price);
+      }
+
+      // Apply sorting
+      const sortField = searchQuery.sort === 'name' ? 'name' : 
+                       searchQuery.sort === 'price' ? 'price' : 'created_at';
+      query = query.order(sortField, { ascending: searchQuery.sort_direction === 'asc' });
+
+      // Apply pagination
+      const from = (searchQuery.page - 1) * searchQuery.per_page;
+      const to = from + searchQuery.per_page - 1;
+      query = query.range(from, to);
+
+      const { data: products, error, count } = await query;
+
+      if (error) {
+        throw new Error(error.message || 'Failed to search products');
+      }
+
+      // Calculate pagination info
+      const totalCount = count || 0;
+      const currentPage = searchQuery.page;
+      const totalPages = Math.ceil(totalCount / searchQuery.per_page);
+
+      setResults({
+        products: products || [],
+        totalCount,
+        currentPage,
+        totalPages,
+      });
     } catch (error) {
       console.error('Search error:', error);
       setError('Failed to search products. Please try again.');
@@ -213,6 +193,7 @@ export default function SearchContent({ searchParams }: SearchContentProps) {
               products={results.products}
               totalPages={results.totalPages}
               currentPage={results.currentPage}
+              searchParams={searchParams}
             />
           ) : (
             <div className="bg-white rounded-lg shadow-sm p-8 text-center">

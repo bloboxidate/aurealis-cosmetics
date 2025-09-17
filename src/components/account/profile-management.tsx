@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import sarieeApi from '@/lib/sariee-api';
 import { UserIcon, EnvelopeIcon, PhoneIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 
@@ -49,20 +48,47 @@ export default function ProfileManagement() {
         return;
       }
 
-      // Load user profile from Sariee API
-      const response = await sarieeApi.getUserProfile();
-      if (response.status && response.data) {
-        const userProfile = response.data.user;
+      // Load user profile from Supabase
+      const { data: userProfile, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw new Error(error.message || 'Failed to load profile');
+      }
+
+      if (userProfile) {
         setProfile(userProfile);
         setFormData({
-          email: userProfile.email,
-          phone: userProfile.phone,
-          first_name: userProfile.first_name,
+          email: user.email || '',
+          phone: userProfile.phone || '',
+          first_name: userProfile.first_name || '',
           middle_name: userProfile.middle_name || '',
-          last_name: userProfile.last_name,
+          last_name: userProfile.last_name || '',
         });
       } else {
-        throw new Error(response.message || 'Failed to load profile');
+        // Create default profile from auth user
+        const defaultProfile: UserProfile = {
+          id: user.id,
+          first_name: user.user_metadata?.first_name || '',
+          middle_name: null,
+          last_name: user.user_metadata?.last_name || '',
+          email: user.email || '',
+          phone: user.user_metadata?.phone || '',
+          birth_date: null,
+          is_verified: 0,
+          full_name: `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim(),
+        };
+        setProfile(defaultProfile);
+        setFormData({
+          email: user.email || '',
+          phone: user.user_metadata?.phone || '',
+          first_name: user.user_metadata?.first_name || '',
+          middle_name: '',
+          last_name: user.user_metadata?.last_name || '',
+        });
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -88,22 +114,42 @@ export default function ProfileManagement() {
       setError(null);
       setSuccess(null);
 
-      // Update profile using Sariee API
-      const response = await sarieeApi.updateProfile({
-        email: formData.email,
-        phone: formData.phone,
-        first_name: formData.first_name,
-        middle_name: formData.middle_name || undefined,
-        last_name: formData.last_name,
-      });
-
-      if (response.status && response.data) {
-        setSuccess('Profile updated successfully!');
-        // Reload profile to get updated data
-        await loadProfile();
-      } else {
-        throw new Error(response.message || 'Failed to update profile');
+      // Update profile in Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
       }
+
+      // Update user profile in user_profiles table
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .upsert({
+          user_id: user.id,
+          first_name: formData.first_name,
+          middle_name: formData.middle_name || null,
+          last_name: formData.last_name,
+          phone: formData.phone,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (profileError) {
+        throw new Error(profileError.message || 'Failed to update profile');
+      }
+
+      // Update email in auth if it changed
+      if (formData.email !== user.email) {
+        const { error: emailError } = await supabase.auth.updateUser({
+          email: formData.email,
+        });
+
+        if (emailError) {
+          throw new Error(emailError.message || 'Failed to update email');
+        }
+      }
+
+      setSuccess('Profile updated successfully!');
+      // Reload profile to get updated data
+      await loadProfile();
     } catch (error) {
       console.error('Error updating profile:', error);
       setError('Failed to update profile. Please try again.');
@@ -294,7 +340,7 @@ export default function ProfileManagement() {
               <div>
                 <p className="text-sm font-medium text-gray-900">Email Status</p>
                 <p className="text-sm text-gray-500">
-                  {profile.email_verified_at ? 'Verified' : 'Not verified'}
+                  {profile.is_verified ? 'Verified' : 'Not verified'}
                 </p>
               </div>
             </div>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useCart } from '@/contexts/cart-context';
-import sarieeApi from '@/lib/sariee-api';
+import { supabase } from '@/lib/supabase';
 import CheckoutSteps from './checkout-steps';
 import ShippingForm from './shipping-form';
 import PaymentForm from './payment-form';
@@ -94,27 +94,56 @@ export default function CheckoutContent() {
         throw new Error('Missing required information');
       }
 
-      // Place order using Sariee API
-      const checkoutData = {
-        payment_method: selectedPaymentMethod.type,
-        shipping_address_id: shippingAddress.id!,
-        billing_address_id: billingAddress?.id || shippingAddress.id!,
-        notes: orderNotes,
-      };
-
-      const response = await sarieeApi.checkout(checkoutData);
-      
-      if (response.status && response.data) {
-        // Order placed successfully
-        const orderId = response.data.order_id || response.data.id || `ORD-${Date.now()}`;
-        setOrderId(orderId);
-        setCurrentStep('confirmation');
-        
-        // Clear cart after successful order
-        await clearCart();
-      } else {
-        throw new Error(response.message || 'Failed to place order');
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
       }
+
+      // Create order in Supabase
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user.id,
+          status: 'pending',
+          total_amount: state.totalPrice,
+          shipping_address_id: shippingAddress.id!,
+          billing_address_id: billingAddress?.id || shippingAddress.id!,
+          payment_method: selectedPaymentMethod.type,
+          notes: orderNotes,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (orderError) {
+        throw new Error(orderError.message || 'Failed to create order');
+      }
+
+      // Create order items
+      const orderItems = state.items.map(item => ({
+        order_id: order.id,
+        product_id: item.product_id,
+        variant_id: item.variant_id,
+        quantity: item.quantity,
+        price: item.price,
+        created_at: new Date().toISOString(),
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        throw new Error(itemsError.message || 'Failed to create order items');
+      }
+
+      // Order placed successfully
+      setOrderId(order.id);
+      setCurrentStep('confirmation');
+      
+      // Clear cart after successful order
+      await clearCart();
     } catch (err) {
       setError('Failed to place order. Please try again.');
       console.error('Order placement error:', err);

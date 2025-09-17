@@ -12,9 +12,8 @@ import {
   Save,
   X
 } from 'lucide-react';
-import sarieeApi from '@/lib/sariee-api';
-import { Product } from '@/lib/sariee-api';
-import { getErrorMessage } from '@/lib/sariee-error-handler';
+// Removed Sariee API import - using Supabase instead
+import { Product } from '@/lib/supabase';
 
 export function ProductManagement() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -35,10 +34,11 @@ export function ProductManagement() {
       setLoading(true);
       setError(null);
 
-      const [productsResponse, categoriesResponse] = await Promise.all([
-        sarieeApi.getAllProducts({ type: 'unseperated', per_page: 50 }),
-        sarieeApi.getCategories({ per_page: 50 })
-      ]);
+      // TODO: Implement Supabase data fetching for product management
+      // const [productsResponse, categoriesResponse] = await Promise.all([
+      //   supabase.from('products').select('*').limit(50),
+      //   supabase.from('categories').select('*').limit(50)
+      // ]);
 
       if (productsResponse.status) {
         setProducts(productsResponse.data);

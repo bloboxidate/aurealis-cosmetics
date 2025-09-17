@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import sarieeApi from '@/lib/sariee-api';
 import { formatPrice } from '@/lib/utils';
 import { 
   ArrowLeftIcon,
@@ -88,55 +87,60 @@ export default function OrderDetails({ orderId }: OrderDetailsProps) {
       }
 
       // Load order details from Sariee API
-      const response = await sarieeApi.getSingleOrder(orderId);
-      if (response.status && response.data) {
-        // Convert Sariee order format to our format
-        const orderData: OrderDetails = {
-          id: response.data.id,
-          status: response.data.status || response.data.order_status,
-          total: response.data.total || response.data.amount || response.data.total_amount,
-          subtotal: response.data.subtotal || response.data.items_total,
-          shipping: response.data.shipping_cost || response.data.shipping || 0,
-          tax: response.data.tax_amount || response.data.tax || 0,
-          created_at: response.data.created_at || response.data.order_date,
-          updated_at: response.data.updated_at || response.data.modified_at,
-          items: response.data.items?.map((item: any) => ({
+        const { data: orderData, error } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items(
+              *,
+              product:products(name, product_images(image_url))
+            ),
+            shipping_address:user_addresses(*)
+          `)
+          .eq('id', orderId)
+          .eq('user_id', user.id)
+          .single();
+      if (error) {
+        throw new Error(error.message || 'Order not found');
+      }
+
+      if (orderData) {
+        // Convert Supabase order format to our format
+        const order: OrderDetails = {
+          id: orderData.id,
+          status: orderData.status,
+          total: orderData.total_amount,
+          subtotal: orderData.total_amount, // Assuming no separate subtotal field
+          shipping: 0, // Assuming no separate shipping field
+          tax: 0, // Assuming no separate tax field
+          created_at: orderData.created_at,
+          updated_at: orderData.updated_at,
+          items: orderData.order_items?.map((item: any) => ({
             id: item.id,
-            product_name: item.product_name || item.name,
+            product_name: item.product?.name || 'Product',
             quantity: item.quantity,
-            price: item.price || item.unit_price,
-            total: (item.price || item.unit_price) * item.quantity,
-            product_image: item.product_image || item.image,
+            price: item.price,
+            total: item.price * item.quantity,
+            product_image: item.product?.product_images?.[0]?.image_url,
             product_id: item.product_id,
           })) || [],
           shipping_address: {
-            name: response.data.shipping_address?.name || '',
-            street: response.data.shipping_address?.street || '',
-            building: response.data.shipping_address?.building || '',
-            floor: response.data.shipping_address?.floor || '',
-            flat: response.data.shipping_address?.flat || '',
-            landmark: response.data.shipping_address?.landmark,
-            phone: response.data.shipping_address?.phone || '',
-            city: response.data.shipping_address?.city || '',
+            name: orderData.shipping_address?.name || '',
+            street: orderData.shipping_address?.street || '',
+            building: orderData.shipping_address?.building || '',
+            floor: orderData.shipping_address?.floor || '',
+            flat: orderData.shipping_address?.flat || '',
+            landmark: orderData.shipping_address?.landmark || '',
+            phone: orderData.shipping_address?.phone || '',
+            city: orderData.shipping_address?.city_id || '',
           },
-          billing_address: response.data.billing_address ? {
-            name: response.data.billing_address.name,
-            street: response.data.billing_address.street,
-            building: response.data.billing_address.building,
-            floor: response.data.billing_address.floor,
-            flat: response.data.billing_address.flat,
-            landmark: response.data.billing_address.landmark,
-            phone: response.data.billing_address.phone,
-            city: response.data.billing_address.city,
-          } : undefined,
-          payment_method: response.data.payment_method || 'Unknown',
-          tracking_number: response.data.tracking_number,
-          notes: response.data.notes || response.data.order_notes,
+          billing_address: undefined, // Assuming no separate billing address
+          payment_method: orderData.payment_method || 'Unknown',
+          tracking_number: orderData.tracking_number,
+          notes: orderData.notes,
         };
         
-        setOrder(orderData);
-      } else {
-        throw new Error(response.message || 'Order not found');
+        setOrder(order);
       }
     } catch (error) {
       console.error('Error loading order details:', error);

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import sarieeApi from '@/lib/sariee-api';
 import { formatPrice } from '@/lib/utils';
 import { 
   ShoppingBagIcon, 
@@ -59,22 +58,37 @@ export default function OrderHistory() {
         return;
       }
 
-      // Load orders from Sariee API
-      const response = await sarieeApi.getUserOrders();
-      if (response.status && response.data) {
-        // Convert Sariee order format to our format
-        const ordersData: Order[] = response.data.map((order: any) => ({
+      // Load orders from Supabase
+      const { data: ordersData, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items(
+            *,
+            product:products(name, product_images(image_url))
+          ),
+          shipping_address:user_addresses(name, street, building, floor, flat)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to load orders');
+      }
+
+      if (ordersData) {
+        const orders: Order[] = ordersData.map((order: any) => ({
           id: order.id,
-          status: order.status || order.order_status,
-          total: order.total || order.amount || order.total_amount,
-          created_at: order.created_at || order.order_date,
-          updated_at: order.updated_at || order.modified_at,
-          items: order.items?.map((item: any) => ({
+          status: order.status,
+          total: order.total_amount,
+          created_at: order.created_at,
+          updated_at: order.updated_at,
+          items: order.order_items?.map((item: any) => ({
             id: item.id,
-            product_name: item.product_name || item.name,
+            product_name: item.product?.name || 'Product',
             quantity: item.quantity,
-            price: item.price || item.unit_price,
-            product_image: item.product_image || item.image,
+            price: item.price,
+            product_image: item.product?.product_images?.[0]?.image_url,
           })) || [],
           shipping_address: order.shipping_address ? {
             name: order.shipping_address.name,
@@ -86,9 +100,7 @@ export default function OrderHistory() {
           payment_method: order.payment_method,
         }));
         
-        setOrders(ordersData);
-      } else {
-        throw new Error(response.message || 'Failed to load orders');
+        setOrders(orders);
       }
     } catch (error) {
       console.error('Error loading orders:', error);
