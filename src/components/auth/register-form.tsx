@@ -57,20 +57,9 @@ export function RegisterForm() {
     }
 
     try {
-      console.log('Attempting Supabase registration...');
-      console.log('Supabase URL: https://xwyylknqtwhobrjclwkp.supabase.co');
-      console.log('Supabase Key exists:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-      
-      // Check if Supabase is properly configured
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (!supabaseKey || supabaseKey === 'placeholder-key') {
-        setError('Supabase is not properly configured. Please contact the administrator.');
-        setLoading(false);
-        return;
-      }
+      const supabaseClient = createClientComponentClient();
       
       // Use Supabase for user registration
-      const supabaseClient = createClientComponentClient();
       const { data, error: supabaseError } = await supabaseClient.auth.signUp({
         email: formData.email,
         password: formData.password,

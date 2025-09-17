@@ -91,10 +91,11 @@ export default function GlobalSearch({
           .select(`
             id,
             name,
-            product_images(image_url)
+            product_images (
+              image_url
+            )
           `)
-          .or(`name.ilike.%${value.trim()}%,description.ilike.%${value.trim()}%`)
-          .eq('is_active', true)
+          .ilike('name', `%${value.trim()}%`)
           .limit(5);
 
         if (error) {

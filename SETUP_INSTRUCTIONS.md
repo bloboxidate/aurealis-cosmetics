@@ -15,7 +15,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_actual_supabase_anon_key_here
 SUPABASE_KEY=your_actual_supabase_anon_key_here
 
 # App Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://127.0.0.1:3000
 NEXT_PUBLIC_APP_NAME=Aurealis Cosmetics
 ```
 
